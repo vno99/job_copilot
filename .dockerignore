@@ -1,0 +1,29 @@
+# Secrets : le contexte de build (racine) ne doit jamais embarquer .env.
+.env
+.env.*
+!.env.example
+
+.git
+.gitignore
+.gitattributes
+.github
+
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+venv/
+.venv/
+
+# Données et artefacts locaux
+data/
+logs/
+node_modules/
+web/node_modules/
+web/.next/
+web/.vercel
+*.md
+!README.md
+!CLAUDE.md

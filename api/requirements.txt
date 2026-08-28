@@ -1,0 +1,23 @@
+# Dépendances de l'API FastAPI (service api/ du docker-compose).
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0
+python-multipart>=0.0.9
+pydantic>=2.7,<3.0
+
+# Dépendances partagées avec src/ (versions alignées sur requirements.txt racine) :
+# nécessaires à l'import des services et du moteur de scoring.
+sqlalchemy>=2.0,<2.1
+psycopg2-binary>=2.9
+python-dotenv==1.1.0
+pyyaml==6.0.3
+markdownify==1.2.2
+markdown==3.8.2
+xhtml2pdf>=0.2.17
+langchain-core==1.5.3
+langchain-mistralai==1.1.6
+
+# Récupération de pages web + conversion HTML→texte (feature « Ajouter des
+# offres d'emploi », POST /job-offers/from-url) — versions alignées sur le
+# requirements.txt racine.
+playwright==1.62.0
+lxml==6.1.0

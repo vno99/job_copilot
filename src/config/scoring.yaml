@@ -1,0 +1,6 @@
+# Configuration du matching (voir src/core/scoring/llm_matcher.py).
+# Le score de compatibilité est produit par le LLM Mistral (mistral-small-latest) :
+# il n'y a plus de poids de scoring heuristique.
+
+# Seuil en dessous duquel un CV recomposé n'est pas généré (0-100)
+match_threshold: 60

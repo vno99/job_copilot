@@ -1,0 +1,14 @@
+requests==2.33.1
+pyyaml==6.0.3
+python-dotenv==1.1.0
+lxml==6.1.0
+beautifulsoup4==4.14.3
+markdownify==1.2.2
+markdown==3.8.2
+xhtml2pdf>=0.2.17
+sqlalchemy>=2.0,<2.1
+psycopg2-binary>=2.9
+playwright==1.62.0
+langchain_huggingface==1.2.2
+langchain-core==1.5.3
+langchain-mistralai==1.1.6
