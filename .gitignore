@@ -14,7 +14,10 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# Artefacts de build Python à la RACINE uniquement. Sans le `/` initial, ce
+# motif ignorait aussi web/src/lib/ (sources front référencées par l'alias
+# `@/lib`) → imports non résolus dans le CI (offers-browser, offers-table…).
+/lib/
 lib64/
 parts/
 sdist/
