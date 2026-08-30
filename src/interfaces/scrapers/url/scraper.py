@@ -44,7 +44,24 @@ _VISIBLE_TEXT_MIN = 2000   # budget minimal garanti au texte visible
 # section LINKS (ordre du document) — et le LLM, invité à renvoyer les URLs
 # d'offres « dans l'ordre de la page », sélectionnait en priorité ces offres
 # hors critères de recherche (cause racine d'ingestions non pertinentes).
+# Ces tags ne désignent du **chrome de page** que hors du contenu principal :
+# un ``<header>`` imbriqué dans la section de résultats (ex. Hellowork, qui
+# enveloppe ses cartes d'offres dans un ``<header>`` à l'intérieur de la
+# ``<section>``) est du contenu — ses liens ne doivent pas être exclus.
 SECONDARY_LINK_TAGS = ("nav", "header", "footer", "aside")
+
+# Tags secondaires dont un conteneur IMBRIQUÉ dans le contenu principal
+# (``main``/``section``/``article``) est traité comme du contenu, pas comme du
+# chrome : seul ``header`` — Hellowork enveloppe ses cartes de résultats dans
+# un ``<header>`` à l'intérieur de la section de résultats ; l'exclure
+# retirait les URLs des offres de LINKS DE LA PAGE. Les autres tags
+# (``nav``, ``footer``, ``aside``) restent toujours exclus, où qu'ils soient
+# (navigation, pied de page, barre latérale).
+NESTED_IN_CONTENT_ALLOWED_TAGS = ("header",)
+
+# Tags marquant le contenu principal : un ``header`` imbriqué dans l'un d'eux
+# est du contenu, pas du chrome de page.
+CONTENT_ROOT_TAGS = ("main", "section", "article")
 
 
 def _is_private_ip(address: str) -> bool:
@@ -84,9 +101,28 @@ def _is_private_host(hostname: str) -> bool:
     return any(_is_private_ip(info[4][0]) for info in infos)
 
 
+def _has_content_root_ancestor(element) -> bool:
+    """Le conteneur est-il imbriqué dans le contenu principal (``main``,
+    ``section`` ou ``article``) ?
+
+    Un ``<header>`` de carte d'offre logé dans la ``<section>`` des résultats
+    (Hellowork) est du contenu : ses liens doivent être réinjectés. Le ``<nav>``
+    d'un carrousel logé dans le ``<header>`` de page (Free-Work, sticky en tête
+    de page) n'a, lui, aucun ancêtre ``main``/``section``/``article`` : c'est du
+    chrome de page, exclu.
+    """
+    element = element.getparent()
+    while element is not None:
+        tag = getattr(element, "tag", None)
+        if isinstance(tag, str) and tag.lower() in CONTENT_ROOT_TAGS:
+            return True
+        element = element.getparent()
+    return False
+
+
 def _in_secondary_container(anchor) -> bool:
-    """Le lien se trouve-t-il dans un conteneur secondaire (``nav``, ``header``,
-    ``footer``, ``aside``) ?
+    """Le lien se trouve-t-il dans un conteneur secondaire du chrome de page
+    (``nav``, ``header``, ``footer``, ``aside``) ?
 
     Ces conteneurs portent le contenu secondaire de la page (navigation, menu,
     pied de page, barre latérale, carrousels d'offres « récentes » logés dans le
@@ -95,12 +131,26 @@ def _in_secondary_container(anchor) -> bool:
     invité à renvoyer les URLs d'offres « dans l'ordre de la page », choisissait
     en priorité les liens d'un carrousel « dernières offres » hors critères de
     recherche, en tête de liste (ex. Free-Work).
+
+    Exception : un ``<header>`` IMBRIQUÉ dans le contenu principal
+    (``main``/``section``/``article``) n'est pas du chrome — c'est du contenu.
+    Ex. Hellowork enveloppe ses cartes de résultats dans un ``<header>`` à
+    l'intérieur de la ``<section>`` des résultats : exclure tous les
+    ``<header>`` retirait les URLs des offres de LINKS DE LA PAGE (le LLM
+    inventait alors des URLs slug, HTTP 404 à la récupération individuelle).
+    Les autres tags secondaires (``nav``, ``footer``, ``aside``) restent
+    toujours exclus, où qu'ils soient.
     """
     element = anchor
     while element is not None:
         tag = getattr(element, "tag", None)
         if isinstance(tag, str) and tag.lower() in SECONDARY_LINK_TAGS:
-            return True
+            nested_in_content = (
+                tag.lower() in NESTED_IN_CONTENT_ALLOWED_TAGS
+                and _has_content_root_ancestor(element)
+            )
+            if not nested_in_content:
+                return True
         element = element.getparent()
     return False
 

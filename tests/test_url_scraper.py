@@ -161,6 +161,41 @@ def test_excludes_links_from_secondary_containers():
     assert "mentions-legales" not in text
 
 
+def test_header_nested_in_main_content_is_not_secondary():
+    """Un ``<header>`` IMBRIQUÉ dans le contenu principal n'est pas un conteneur
+    secondaire : c'est du contenu, pas du chrome de page.
+
+    Certains sites (ex. Hellowork) enveloppent leurs cartes de résultats dans un
+    ``<header>`` à l'intérieur de la section principale. Régression 2026-08-28 :
+    la correction « conteneurs secondaires » excluait tous les liens sous un
+    ``<header>`` — les URLs d'offres disparaissaient de la section LINKS DE LA
+    PAGE et le LLM, sans href à recopier, inventait des URLs slug (HTTP 404 à la
+    récupération individuelle de chaque offre).
+    """
+    html = (
+        "<html><body>"
+        "<header>"  # chrome de page (racine) : exclu
+        '<a href="https://example.com/recent-1">Senior Software Engineer</a>'
+        "</header>"
+        "<section>"  # contenu principal
+        "<header>"  # enveloppe des cartes de résultats (Hellowork)
+        '<a href="https://example.com/offres/developpeur-ia">Développeur IA</a>'
+        "</header>"
+        "</section>"
+        "<footer>"
+        '<a href="https://example.com/mentions-legales">Mentions légales</a>'
+        "</footer>"
+        "</body></html>"
+    )
+    text = _convert(html, "https://example.com/")
+    assert "LINKS DE LA PAGE" in text
+    # L'offre du contenu principal (dans un <header> imbriqué) est conservée.
+    assert "- https://example.com/offres/developpeur-ia" in text
+    # Le header de page et le footer restent exclus (chrome).
+    assert "recent-1" not in text
+    assert "mentions-legales" not in text
+
+
 def test_links_preserved_when_visible_text_overflows():
     """Avec un texte visible énorme, la section LINKS est préservée : un budget
     lui est réservé, le texte visible est tronqué pour tenir."""
