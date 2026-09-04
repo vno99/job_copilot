@@ -1,7 +1,7 @@
 """Agent ``job_analysis`` : calcul de correspondance offre / profil.
 
 Enchaîne la re-mise en forme ORM -> dict pour le moteur de matching, l'appel du
-matching LLM (``compute_llm_match``, mistral-small-latest) et la persistance
+matching LLM (``compute_llm_match``, ministral-14b-latest) et la persistance
 d'un ``match_result``. Le matching **exige** le LLM : pas de fallback
 heuristique, une indisponibilité lève ``LLMMatchingError``.
 """

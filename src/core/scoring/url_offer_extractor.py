@@ -3,7 +3,7 @@
 Feature « Ajouter des offres d'emploi » : l'utilisateur soumet une URL, la page
 est récupérée côté serveur (Playwright) puis son texte est classé par le LLM
 (``extract_page``) via l'instance dédiée ``score_engine.URL_SCRAPER_LLM``
-(mistral-small-latest).
+(ministral-14b-latest).
 
 La page peut être :
 - **une offre unique** (le cas historique) : le LLM renvoie ``page_type
@@ -338,7 +338,7 @@ def _parse_result(
     - ``{"page_type": "single", "offer": {...}}`` → offre complète ;
     - ``{"page_type": "list", "offers": [{"url": …}, …]}`` → URLs (dans l'ordre,
       bornées à ``max_urls``) — rejeté en mode ``single_only``. La clé des URLs
-      peut être **``"offers"`` ou ``"offres"``** : le LLM (mistral-small) écrit
+      peut être **``"offers"`` ou ``"offres"``** : le LLM écrit
       parfois la clé en français, et l'une ou l'autre est acceptée ;
     - ``{"page_type": "none", "reason": …}`` → ``URLScrapingError`` ;
     - dict d'offre unique **sans** ``page_type`` (rétro-compat : mock du conftest,

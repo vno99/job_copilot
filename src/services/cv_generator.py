@@ -11,8 +11,9 @@ anonymisation et réinjectées côté serveur. Un seul CV par couple (offre,
 profil) : une nouvelle génération remplace l'existant (``cv_version``).
 
 La génération se fait en **une passe** (``humanize_cv_markdown``) : la pass 1
-recompose le CV sur ``CV_GENERATION_LLM`` (mistral-large-latest). La pass 2 (réécriture
-« humaine », ``_rewrite_cv_human`` sur ``HUMANIZE_LLM``) est **désactivée** :
+recompose le CV sur ``CV_GENERATION_LLM`` (ministral-14b-latest, repli temporaire
+2026-09-04 — voir ``score_engine``). La pass 2 (réécriture « humaine »,
+``_rewrite_cv_human`` sur ``HUMANIZE_LLM``) est **désactivée** :
 ses prompts et son code sont conservés pour un usage futur mais ne sont plus
 appelés. Sans clé ou en cas de réponse invalide, ``CVGenerationError`` est levée
 (→ HTTP 502), pas de fallback.

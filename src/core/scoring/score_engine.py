@@ -4,13 +4,17 @@ Le scoring offre / profil vit désormais dans ``llm_matcher.py`` (LLM Mistral).
 Ce module conserve : ``extract_skills`` (extraction LLM à l'ingestion), ses
 helpers de normalisation (``normalize_text``, ``skills_to_names``),
 ``offer_skills``, l'instance ``LLM`` du matching, ``GENERATION_LLM`` (instance
-dédiée, à plus grand budget de tokens, pour la pass 1 de la **lettre**,
-mistral-small-latest), ``CV_GENERATION_LLM`` (instance dédiée à la pass 1 de la
-**génération de CV**, explicitement mistral-large-latest),
+dédiée, à plus grand budget de tokens, pour la pass 1 de la **lettre**),
+``CV_GENERATION_LLM`` (instance dédiée à la pass 1 de la **génération de CV**),
 ``HUMANIZE_LLM`` (instance dédiée de la **pass 2** — réécriture humanisée — de
-la lettre, mistral-large-latest) et ``URL_SCRAPER_LLM`` (instance
-dédiée à l'extraction d'une offre d'emploi depuis le texte d'une page web,
-mistral-small-latest).
+la lettre) et ``URL_SCRAPER_LLM`` (instance dédiée à l'extraction d'une offre
+d'emploi depuis le texte d'une page web).
+
+Toutes les instances pointent actuellement sur ``ministral-14b-latest``
+(repli choisi le 2026-09-04) : sur le plan gratuit du workspace,
+``mistral-small`` a son enveloppe mensuelle épuisée (HTTP 429) et
+``mistral-large`` n'est pas provisionné (HTTP 403 ``tier_not_allowed``).
+À réévaluer au reset mensuel ou au passage sur un plan payant.
 """
 
 import json
@@ -31,7 +35,9 @@ logger = setup_logging(__name__)
 load_dotenv(PROJECT_ROOT / ".env")
 
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
-LLM_MODEL = "mistral-small-latest"
+# 2026-09-04 : repli sur ministral-14b-latest — mistral-small (plan gratuit) a
+# son enveloppe mensuelle épuisée (HTTP 429). À rétablir au reset / plan payant.
+LLM_MODEL = "ministral-14b-latest"
 TEMPERATURE = 0.1
 MAX_TOKEN = 2000
 
@@ -65,12 +71,13 @@ GENERATION_LLM = (
     else None
 )
 
-# Instance dédiée à la **pass 1 de la génération de CV** : modèle explicitement
-# mistral-large-latest, choisi par l'utilisateur pour tester la qualité de
-# recomposition, indépendant de la lettre (``GENERATION_LLM``) qui reste sur
-# mistral-small-latest. Budget de tokens et température identiques à la
+# Instance dédiée à la **pass 1 de la génération de CV** : indépendante de la
+# lettre (``GENERATION_LLM``). Sur **mistral-large-latest** à l'origine (choisi
+# pour la qualité de recomposition), mais ce modèle n'est pas provisionné sur le
+# plan gratuit (HTTP 403 ``tier_not_allowed``) → repli 2026-09-04 sur
+# ministral-14b-latest. Budget de tokens et température identiques à la
 # génération (un CV recomposé ≈ un document).
-CV_GENERATION_MODEL = "mistral-large-latest"
+CV_GENERATION_MODEL = "ministral-14b-latest"
 
 CV_GENERATION_LLM = (
     ChatMistralAI(
@@ -83,12 +90,12 @@ CV_GENERATION_LLM = (
     else None
 )
 
-# Pass 2 de la lettre de motivation (réécriture humanisée) : modèle
-# **explicitement** mistral-large-latest, choisi par l'utilisateur, indépendant
-# du modèle de génération de la lettre (``GENERATION_LLM``) qui pourrait basculer
-# plus tard. Budget de tokens et température identiques à la génération (une
-# réécriture ≈ un document).
-HUMANIZE_MODEL = "mistral-large-latest"
+# Pass 2 de la lettre de motivation (réécriture humanisée) : indépendante du
+# modèle de génération de la lettre (``GENERATION_LLM``). Sur
+# **mistral-large-latest** à l'origine, non provisionné sur le plan gratuit
+# (HTTP 403) → repli 2026-09-04 sur ministral-14b-latest. Budget de tokens et
+# température identiques à la génération (une réécriture ≈ un document).
+HUMANIZE_MODEL = "ministral-14b-latest"
 
 HUMANIZE_LLM = (
     ChatMistralAI(
@@ -102,8 +109,9 @@ HUMANIZE_LLM = (
 )
 
 # Instance dédiée à l'extraction d'une offre d'emploi depuis le texte d'une
-# page web (feature « Ajouter des offres d'emploi ») : mistral-small-latest,
-# température d'extraction factuelle (0.1). Budget de sortie généreux : la
+# page web (feature « Ajouter des offres d'emploi ») : suit ``LLM_MODEL``
+# (ministral-14b-latest, repli — voir module docstring), température
+# d'extraction factuelle (0.1). Budget de sortie généreux : la
 # sortie d'une **liste** reproduit les URLs des offres, et certaines pages (ex.
 # Indeed, URLs de tracking ``pagead/clk``) portent des URLs de ~350-500
 # caractères — 50 URLs ≈ 18 k caractères ≈ ~13 k tokens, au-delà du budget
@@ -111,7 +119,7 @@ HUMANIZE_LLM = (
 # sortie réelle reste proportionnelle au nombre d'URLs demandées (borné par le
 # service à 2 × ``max_offers``), le budget ne fait que laisser le modèle finir.
 # Couvre aussi les descriptions complètes d'offres uniques sans troncature.
-URL_SCRAPER_MODEL = LLM_MODEL  # mistral-small-latest
+URL_SCRAPER_MODEL = LLM_MODEL  # ministral-14b-latest (repli, voir module docstring)
 URL_SCRAPER_MAX_TOKEN = 16000
 
 URL_SCRAPER_LLM = (

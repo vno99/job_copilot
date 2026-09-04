@@ -9,12 +9,12 @@ politesse du LLM (un nettoyage retire les placeholders résiduels via
 
 La génération se fait en **deux passes** (``humanize_letter_markdown``) :
 1. La pass 1 (``generate_letter_markdown``) rédige la lettre — comportement
-   historique, inchangé, sur ``GENERATION_LLM`` (``mistral-small-latest``).
+   historique, inchangé, sur ``GENERATION_LLM`` (ministral-14b-latest).
 2. La pass 2 est **best-effort** : le LLM réécrit systématiquement la lettre de
    la pass 1 avec un style humain (``_rewrite_letter_human``). En cas d'échec de
    la pass 2, la lettre de la pass 1 est conservée. La réécriture passe par
-   l'instance dédiée ``HUMANIZE_LLM`` (**``mistral-large-latest``**, partagée
-   avec la pass 2 du CV), indépendante du modèle de génération.
+   l'instance dédiée ``HUMANIZE_LLM`` (ministral-14b-latest, repli — voir
+   ``score_engine``), indépendante du modèle de génération.
 
 La pass 1 **exige** le LLM : sans clé ou en cas de réponse vide/invalide,
 ``generate_letter_markdown`` lève ``LetterGenerationError`` (→ HTTP 502), pas de

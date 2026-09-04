@@ -22,9 +22,9 @@ coordonnées réelles ne sont pas transmises — le serveur les réinjecte ensui
 
 La génération se fait en **une passe** (``humanize_cv_markdown``) :
 ``generate_cv_markdown`` recompose le CV sur ``CV_GENERATION_LLM``
-(**``mistral-large-latest``**, instance dédiée — la lettre reste sur
-``GENERATION_LLM``/mistral-small-latest). La pass 2 (``_rewrite_cv_human``, réécriture
-« humaine » sur ``HUMANIZE_LLM`` — **``mistral-large-latest``**) est
+(ministral-14b-latest, repli temporaire 2026-09-04 — voir ``score_engine`` ;
+mistral-large d'origine non provisionné sur le plan gratuit). La pass 2
+(``_rewrite_cv_human``, réécriture « humaine » sur ``HUMANIZE_LLM``) est
 **désactivée** : ses prompts ``REWRITE_*`` et le code sont conservés pour un
 usage futur, mais ne sont plus appelés.
 

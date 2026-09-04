@@ -218,7 +218,7 @@ def create_offer_from_url(body: URLOfferRequest, db: Session = Depends(get_db)):
     """Ingère des offres depuis une URL, ou depuis le contenu de sa page collé.
 
     **URL seule** (``source`` absent) : récupération de la page via Playwright
-    puis classification par le LLM (``mistral-small-latest``). **Offre unique** :
+    puis classification par le LLM (``ministral-14b-latest``). **Offre unique** :
     le contenu est extrait directement (409 si déjà en base). **Liste d'offres** :
     le LLM extrait les URLs des offres, on écarte celles déjà en base (colonne
     ``url``), puis on récupère individuellement jusqu'à ``body.max_offers`` offres

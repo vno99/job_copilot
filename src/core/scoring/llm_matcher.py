@@ -1,4 +1,4 @@
-"""Scoring offre / profil par LLM (mistral-small-latest).
+"""Scoring offre / profil par LLM (ministral-14b-latest).
 
 Remplace l'ancien moteur heuristique : le LLM évalue directement la compatibilité
 d'un profil avec une annonce et produit un score global, une décomposition par

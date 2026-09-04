@@ -3,7 +3,7 @@ d'emploi »).
 
 ``URLJobIngestorService.run(url, max_offers)`` enchaîne : validation/normalisation
 de l'URL, récupération de la page (Playwright), classification LLM
-(``extract_page`` — mistral-small-latest). Deux chemins :
+(``extract_page`` — ministral-14b-latest). Deux chemins :
 
 - **offre unique** (la page EST l'offre) : le contenu est déjà extrait par le
   LLM, on dédoublonne sur l'URL soumise (409 si déjà en base) puis on upsert ;
