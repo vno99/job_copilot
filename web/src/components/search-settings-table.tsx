@@ -91,11 +91,21 @@ export function SearchSettingsTable({
               <td className="whitespace-nowrap px-4 py-2 text-zinc-600">
                 {p.source}
               </td>
-              {/* URL tronquée (ellipsis) : le tooltip natif expose l'URL complète. */}
-              <td className="max-w-0 px-4 py-2 text-zinc-600">
-                <span title={p.url} className="block truncate">
+              {/* URL cliquable (nouvel onglet) : le tooltip natif expose l'URL
+                  complète ; stopPropagation empêche le clic d'ouvrir l'édition. */}
+              <td
+                className="max-w-0 px-4 py-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <a
+                  href={p.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={p.url}
+                  className="block truncate text-blue-600 hover:underline"
+                >
                   {p.url}
-                </span>
+                </a>
               </td>
               <td className="px-4 py-2 text-zinc-600">{p.max_offers}</td>
               <td className="px-4 py-2">

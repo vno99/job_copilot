@@ -15,6 +15,7 @@ markdown==3.8.2
 xhtml2pdf>=0.2.17
 langchain-core==1.5.3
 langchain-mistralai==1.1.6
+langchain-openai==1.4.1
 
 # Récupération de pages web + conversion HTML→texte (feature « Ajouter des
 # offres d'emploi », POST /job-offers/from-url) — versions alignées sur le

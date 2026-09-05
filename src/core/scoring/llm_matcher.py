@@ -1,4 +1,4 @@
-"""Scoring offre / profil par LLM (ministral-14b-latest).
+"""Scoring offre / profil par LLM (mistral via OpenRouter).
 
 Remplace l'ancien moteur heuristique : le LLM évalue directement la compatibilité
 d'un profil avec une annonce et produit un score global, une décomposition par
@@ -216,8 +216,8 @@ def compute_llm_match(job: Dict[str, Any], profile: Dict[str, Any]) -> Dict[str,
             réponse n'est pas un JSON exploitable.
     """
     if score_engine.LLM is None:
-        logger.error("MISTRAL_API_KEY absente : matching LLM indisponible.")
-        raise LLMMatchingError("MISTRAL_API_KEY absente : matching LLM indisponible.")
+        logger.error("OPENROUTER_API_KEY absente : matching LLM indisponible.")
+        raise LLMMatchingError("OPENROUTER_API_KEY absente : matching LLM indisponible.")
 
     messages = [
         SystemMessage(content=SYSTEM_PROMPT),

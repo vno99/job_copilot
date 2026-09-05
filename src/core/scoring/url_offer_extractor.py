@@ -3,7 +3,7 @@
 Feature « Ajouter des offres d'emploi » : l'utilisateur soumet une URL, la page
 est récupérée côté serveur (Playwright) puis son texte est classé par le LLM
 (``extract_page``) via l'instance dédiée ``score_engine.URL_SCRAPER_LLM``
-(ministral-14b-latest).
+(mistral-small-latest via OpenRouter).
 
 La page peut être :
 - **une offre unique** (le cas historique) : le LLM renvoie ``page_type
@@ -471,9 +471,9 @@ def extract_page(
 
     llm = score_engine.URL_SCRAPER_LLM
     if llm is None:
-        logger.error("MISTRAL_API_KEY absente : extraction d'offre indisponible.")
+        logger.error("OPENROUTER_API_KEY absente : extraction d'offre indisponible.")
         raise LLMExtractionError(
-            "MISTRAL_API_KEY absente : extraction d'offre indisponible."
+            "OPENROUTER_API_KEY absente : extraction d'offre indisponible."
         )
 
     messages = [

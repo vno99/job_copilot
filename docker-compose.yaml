@@ -160,7 +160,7 @@ services:
     environment:
       # Base applicative vue depuis le conteneur (précède le .env monté).
       DATABASE_URL: ${DOCKER_DATABASE_URL:-postgresql+psycopg2://user:password@postgres-data:5432/job_copilot}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3100}
     volumes:
       # Code et données montés depuis la racine du dépôt (dev-first, comme Airflow).
       - ${AIRFLOW_PROJ_DIR:-.}/src:/workspace/src
@@ -193,7 +193,7 @@ services:
         # Sérialisé dans server.js par next.config (rewrites) : doit pointer vers le service interne.
         API_URL: http://api:8000
     ports:
-      - "3000:3000"
+      - "3100:3000"
     depends_on:
       api:
         condition: service_healthy

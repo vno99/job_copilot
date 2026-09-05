@@ -22,8 +22,7 @@ coordonnées réelles ne sont pas transmises — le serveur les réinjecte ensui
 
 La génération se fait en **une passe** (``humanize_cv_markdown``) :
 ``generate_cv_markdown`` recompose le CV sur ``CV_GENERATION_LLM``
-(ministral-14b-latest, repli temporaire 2026-09-04 — voir ``score_engine`` ;
-mistral-large d'origine non provisionné sur le plan gratuit). La pass 2
+(mistral-large-latest via OpenRouter — qualité de recomposition). La pass 2
 (``_rewrite_cv_human``, réécriture « humaine » sur ``HUMANIZE_LLM``) est
 **désactivée** : ses prompts ``REWRITE_*`` et le code sont conservés pour un
 usage futur, mais ne sont plus appelés.
@@ -427,9 +426,9 @@ def generate_cv_markdown(
     """
     llm = score_engine.CV_GENERATION_LLM
     if llm is None:
-        logger.error("MISTRAL_API_KEY absente : génération de CV LLM indisponible.")
+        logger.error("OPENROUTER_API_KEY absente : génération de CV LLM indisponible.")
         raise CVGenerationError(
-            "MISTRAL_API_KEY absente : génération de CV LLM indisponible."
+            "OPENROUTER_API_KEY absente : génération de CV LLM indisponible."
         )
 
     messages = [
@@ -491,10 +490,10 @@ def _rewrite_cv_human(
     llm = score_engine.HUMANIZE_LLM
     if llm is None:
         logger.error(
-            "MISTRAL_API_KEY absente : réécriture humanisée du CV indisponible."
+            "OPENROUTER_API_KEY absente : réécriture humanisée du CV indisponible."
         )
         raise CVGenerationError(
-            "MISTRAL_API_KEY absente : réécriture humanisée du CV indisponible."
+            "OPENROUTER_API_KEY absente : réécriture humanisée du CV indisponible."
         )
 
     messages = [

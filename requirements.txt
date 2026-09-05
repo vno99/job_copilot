@@ -12,3 +12,4 @@ playwright==1.62.0
 langchain_huggingface==1.2.2
 langchain-core==1.5.3
 langchain-mistralai==1.1.6
+langchain-openai==1.4.1
