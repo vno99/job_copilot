@@ -237,8 +237,8 @@ class URLJobIngestorService:
         already_present = len(urls) - len(available)
         new_urls = available[:max_offers]
 
-        keys: List[Tuple[str, str]] = []
-        added = 0
+        # Collecte de toutes les offres avant un seul upsert batché.
+        rows: List[Dict] = []
         for offer_url in new_urls:
             try:
                 offer_text = self.scraper.fetch_text(offer_url)
@@ -247,12 +247,16 @@ class URLJobIngestorService:
                 logger.warning("Offre individuelle ignorée (%s) : %s", offer_url, exc)
                 continue
             source = urlparse(offer_url).netloc.lower()
-            row = normalize_job_offer(self._build_job_offer(offer_url, source, offer))
+            rows.append(normalize_job_offer(self._build_job_offer(offer_url, source, offer)))
+
+        # Un seul upsert batché pour toutes les offres collectées.
+        keys: List[Tuple[str, str]] = []
+        added = 0
+        if rows:
             with session_scope() as session:
-                ingested, _, _ = job_offer_repository.upsert_many(session, [row])
-            if ingested:
-                added += 1
-                keys.append((source, row["source_job_id"]))
+                ingested, _, _ = job_offer_repository.upsert_many(session, rows)
+                added = ingested
+                keys = [(r["source"], r["source_job_id"]) for r in rows]
 
         return URLIngestResult(keys=keys, added=added, already_present=already_present)
 

@@ -42,12 +42,23 @@ def _fake_scope(session):
 
 class _FakeRepo:
     """Repro du repository : ``get_by_url`` (offre unique), ``existing_urls``
-    (liste, par colonne ``url``) et ``upsert_many`` (compteurs configurables)."""
+    (liste, par colonne ``url``) et ``upsert_many`` (compteurs configurables).
 
-    def __init__(self, existing_url=None, present_urls=(), upsert_result=(1, 0, 0)):
+    ``upsert_call_count`` permet aux tests de vérifier que l'ingestor a bien
+    effectué un seul appel batché (``upsert_many([row1, row2, …])``) plutôt
+    qu'un appel par offre.
+    """
+
+    def __init__(self, existing_url=None, present_urls=(), upsert_result=None):
         self.existing_url = existing_url  # offre renvoyée par get_by_url (ou None)
         self.present_urls = set(present_urls)  # URLs déjà en base (existing_urls)
+        # Si ``upsert_result`` est ``None`` : retourne dynamiquement
+        # ``(len(rows), 0, 0)`` (mode batch, où le repo retourne le nombre
+        # de rows ingérées). Sinon, force une valeur fixe (utile pour tester
+        # le cas TOCTOU où ``ingested == 0``).
         self.upsert_result = upsert_result
+        self.upsert_call_count = 0
+        self.upsert_calls: List[List[Dict]] = []
         self.seen_urls = []  # appels à get_by_url (chemin offre unique)
         self.rows = []
 
@@ -59,8 +70,14 @@ class _FakeRepo:
         return {u for u in urls if u in self.present_urls}
 
     def upsert_many(self, _session, rows):
+        self.upsert_call_count += 1
+        self.upsert_calls.append(list(rows))
         self.rows.extend(rows)
-        return self.upsert_result
+        if self.upsert_result is not None:
+            return self.upsert_result
+        # Mode batch : retourne ``(len(rows), 0, 0)`` par défaut — toutes les
+        # rows sont ingérées.
+        return (len(rows), 0, 0)
 
 
 class _FakeScraper:
@@ -379,8 +396,11 @@ def test_run_from_source_raises_on_invalid_url(monkeypatch):
 
 def test_run_ingests_list_with_individual_urls(monkeypatch):
     """Une liste : chaque URL nouvelle est récupérée individuellement (fetch +
-    extraction mono-offre) ; ``source_job_id`` = hash de l'URL de l'offre."""
-    repo = _FakeRepo(present_urls=(), upsert_result=(1, 0, 0))
+    extraction mono-offre) ; ``source_job_id`` = hash de l'URL de l'offre.
+
+    Avec l'optimisation batch (1 seul ``upsert_many`` avec toutes les rows),
+    le mock retourne ``(len(rows), 0, 0)`` = ``(2, 0, 0)``."""
+    repo = _FakeRepo(present_urls=())
     _install(monkeypatch, repo)
     scraper = _FakeScraper(
         texts={
@@ -476,7 +496,7 @@ def test_run_list_all_present_added_zero_is_not_an_error(monkeypatch):
 def test_run_list_max_offers_bounds_new_urls(monkeypatch):
     """``max_offers`` borne le nombre d'offres **nouvelles** récupérées (les
     premières dans l'ordre de la page), pas le nombre extrait de la liste."""
-    repo = _FakeRepo(present_urls=(), upsert_result=(1, 0, 0))
+    repo = _FakeRepo(present_urls=())
     _install(monkeypatch, repo)
     scraper = _FakeScraper(
         texts={
