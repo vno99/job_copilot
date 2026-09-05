@@ -33,7 +33,10 @@ Créez un fichier `.env` à la racine (non versionné, ignoré par git) — copi
 
 ```
 DATABASE_URL=postgresql+psycopg2://user:password@localhost:5434/job_copilot
-MISTRAL_API_KEY=xxx        # matching, CV, lettre et ajout par URL (pas de fallback)
+OPENROUTER_API_KEY=            # obligatoire — obtain from https://openrouter.ai/keys
+OPENROUTER_API_BASE=           # optionnel, défaut https://openrouter.ai/api/v1
+OPENROUTER_LLM_MODEL_SMALL=   # optionnel, défaut mistral/mistral-small-latest
+OPENROUTER_LLM_MODEL_LARGE=   # optionnel, défaut mistral/mistral-large-latest
 ```
 
 ```bash
@@ -101,10 +104,10 @@ Le matching, la génération de CV et de lettre ne sont **pas** automatiques : i
 5. `POST /api/v1/job-offers/from-url` `{url, max_offers, source?}` — ajoute une offre depuis une URL (Playwright + LLM). Le champ optionnel `source` fournit un **contenu de page collé** qui **remplace le fetch Playwright** (offre unique, l'URL n'est jamais récupérée et reste la clé de dédoublonnage) — débloque les sites protégés par un anti-bot. Pour une **offre unique**, le contenu est extrait par le LLM et dédoublonné sur l'URL soumise. Pour une **liste d'offres**, le LLM ne renvoie que les URLs ; celles déjà en base (colonne `url`) sont ignorées, et jusqu'à `max_offers` offres **nouvelles** (1→20 défaut 5) sont récupérées individuellement et ingérées. `201` + `{offers, added, already_present}`. `409` si la page est une **offre unique** déjà en base, `422` si la page n'est pas une offre exploitable (page non-offre, offre indisponible, ou site protégé par un anti-bot sans contenu collé — voir **Limites connues**), `502` si le LLM est indisponible.
 6. `POST /api/v1/search-parameters/run` — exécute immédiatement l'agent de recherche (même pipeline que le DAG) et retourne le résumé de l'ingestion (offres ajoutées / déjà présentes, échecs par catégorie). CRUD des recherches sauvegardées : `GET/POST /search-parameters`, `PATCH /search-parameters/{id}` (dont `max_offers` 1→20, défaut 5), `DELETE /search-parameters/{id}`, `PUT /search-parameters/{id}/activate` / `/deactivate` — une recherche **inactive** est ignorée par l'agent. **Lancement unitaire** : `POST /search-parameters/{id}/run` exécute une seule ligne, **même inactive** (test ponctuel, le statut est inchangé) ; `404` si l'id est inconnu.
 
-Toutes ces opérations appellent le **LLM Mistral** (clé `MISTRAL_API_KEY` dans `.env`) : sans clé ou en cas de panne du LLM, l'API répond `502` (pas de fallback).
+Toutes ces opérations passent par **OpenRouter** (clé `OPENROUTER_API_KEY` dans `.env`) : sans clé ou en cas de panne du LLM, l'API répond `502` (pas de fallback). Les modèles sont configurables via `OPENROUTER_LLM_MODEL_SMALL` et `OPENROUTER_LLM_MODEL_LARGE`.
 
-- **Matching** : `mistral-small-latest`, sur le **CV brut anonymisé** (jamais une structure parsée).
-- **Génération CV en une passe** : **recomposition ciblée** sur `mistral-large-latest` — réorganiser, condenser et reformuler légèrement les informations déjà présentes dans le CV socle pour mettre en avant celles les plus pertinentes pour l'offre, sans modifier les faits, le niveau de preuve, l'identité professionnelle, les responsabilités ou le niveau d'expertise — avec **fidélité factuelle stricte** (le CV socle anonymisé est l'unique source de vérité, aucune invention). La pass 2 « humaine » est **désactivée** pour le CV. La **lettre**, elle, reste **en deux passes** : pass 1 de rédaction (`mistral-small-latest`), puis pass 2 de réécriture « humaine » sur `mistral-large-latest` ; un échec de la pass 2 conserve la lettre de la pass 1.
+- **Matching** : `OPENROUTER_LLM_MODEL_SMALL` (défaut `mistral/mistral-small-latest`), sur le **CV brut anonymisé** (jamais une structure parsée).
+- **Génération CV en une passe** : **recomposition ciblée** sur `OPENROUTER_LLM_MODEL_LARGE` (défaut `mistral/mistral-large-latest`) — réorganiser, condenser et reformuler légèrement les informations déjà présentes dans le CV socle pour mettre en avant celles les plus pertinentes pour l'offre, sans modifier les faits, le niveau de preuve, l'identité professionnelle, les responsabilités ou le niveau d'expertise — avec **fidélité factuelle stricte** (le CV socle anonymisé est l'unique source de vérité, aucune invention). La pass 2 « humaine » est **désactivée** pour le CV. La **lettre**, elle, reste **en deux passes** : pass 1 de rédaction (`OPENROUTER_LLM_MODEL_SMALL`), puis pass 2 de réécriture « humaine » sur `OPENROUTER_LLM_MODEL_LARGE` ; un échec de la pass 2 conserve la lettre de la pass 1.
 - **Anonymisation** : le LLM ne reçoit jamais les coordonnées. Pour le CV, le serveur **réinjecte** nom, email, téléphone, LinkedIn dans un en-tête ; la lettre, elle, **reste anonyme** (aucune réinjection).
 
 Le contrat complet de l'API est dans `docs/api-contract.md`.
