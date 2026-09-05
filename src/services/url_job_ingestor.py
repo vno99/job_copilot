@@ -189,22 +189,30 @@ class URLJobIngestorService:
 
         L'URL soumise est la clé de dédoublonnage : 409 si déjà en base. Le
         contenu est déjà extrait par ``extract_page`` — aucun fetch supplémentaire.
+
+        Le contrôle d'unicité (``get_by_url``) et l'upsert partagent la **même
+        transaction** pour éviter une course TOCTOU : un upsert concurrent
+        pendant la fenêtre entre les deux opérations ne peut plus échapper au
+        verrou (``SELECT … FOR UPDATE`` sur la ligne correspondante à l'URL).
         """
+        source = urlparse(url).netloc.lower()
+        row = normalize_job_offer(self._build_job_offer(url, source, offer))
         with session_scope() as session:
-            existing = job_offer_repository.get_by_url(session, url)
+            # Verrou partagé avec l'upsert : SELECT … FOR UPDATE verrouille les
+            # lignes existantes correspondantes jusqu'à la fin de la transaction.
+            # Combiné à ``ON CONFLICT DO NOTHING`` dans l'upsert, cela élimine
+            # la fenêtre TOCTOU.
+            existing = job_offer_repository.get_by_url_for_update(session, url)
             if existing is not None:
                 logger.info("Offre déjà en base (id=%s) : %s", existing.id, url)
                 raise URLOfferDuplicateError(
                     f"Cette offre est déjà en base (id={existing.id})"
                 )
-
-        source = urlparse(url).netloc.lower()
-        row = normalize_job_offer(self._build_job_offer(url, source, offer))
-        with session_scope() as session:
             ingested, _, _ = job_offer_repository.upsert_many(session, [row])
             if ingested == 0:
-                # Course TOCTOU : inséré entre le contrôle et l'upsert
-                # (ON CONFLICT DO NOTHING) → traité comme doublon.
+                # Course TOCTOU : un autre processus a inséré entre
+                # ``get_by_url_for_update`` et ``upsert_many``. L'upsert
+                # ``ON CONFLICT DO NOTHING`` renvoie 0 → doublon.
                 raise URLOfferDuplicateError("Cette offre est déjà en base")
 
         return URLIngestResult(

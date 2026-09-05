@@ -223,9 +223,33 @@ def offer_skills(offer: Dict[str, Any]) -> List[str]:
 
 
 def extract_skills(offer_text: str) -> dict:
+    """Extrait les compétences d'une offre d'emploi via LLM.
+
+    Le résultat porte un champ ``_status`` (``"disabled"``, ``"failed"``,
+    ``"empty"`` ou ``"extracted"``) qui distingue un LLM désactivé / en
+    échec / une offre sans compétence détectée d'une extraction **réussie**
+    mais sans compétence. Le matching, le scoring et le front peuvent
+    s'appuyer dessus pour ne pas traiter « LLM en panne » comme « le candidat
+    n'a aucune des compétences attendues ». Le préfixe ``_`` évite la collision
+    avec une éventuelle compétence nommée « status ».
+
+    Forme de retour (toutes les branches) :
+
+    .. code-block:: python
+
+        {
+            "hard_skills":     [{"name": "Python", ...}, ...],
+            "soft_skills":     [...],
+            "certifications":  [...],
+            "_status":         "extracted" | "empty" | "failed" | "disabled",
+        }
+    """
     if LLM is None:
         logger.warning("OPENROUTER_API_KEY absente : extraction de compétences vide.")
-        return {"hard_skills": [], "soft_skills": [], "certifications": []}
+        return {
+            "hard_skills": [], "soft_skills": [], "certifications": [],
+            "_status": "disabled",
+        }
 
     user_prompt = USER_PROMPT_TEMPLATE.format(job_description=offer_text)
 
@@ -239,7 +263,7 @@ def extract_skills(offer_text: str) -> dict:
 
         # Extraction du contenu
         response_text = response.content
-        
+
         # Nettoyage : parfois Mistral ajoute des backticks autour du JSON
         response_text = response_text.strip()
         if response_text.startswith("```json"):
@@ -248,24 +272,35 @@ def extract_skills(offer_text: str) -> dict:
             response_text = response_text[3:]  # Enlève ```
         if response_text.endswith("```"):
             response_text = response_text[:-3]  # Enlève le ``` final
-        
+
         result = json.loads(response_text)
-        
+
         # Petit nettoyage : on s'assure que toutes les clés existent
         default = {"hard_skills": [], "soft_skills": [], "certifications": []}
         for key in default:
             if key not in result:
                 result[key] = []
-        
+
+        # Distinction « extraites » vs « extraites mais aucune trouvée ». Une
+        # extraction réussie avec listes vides est sémantiquement différente
+        # d'un échec : l'offre ne demande aucune compétence, on ne retry pas.
+        is_empty = all(not result.get(k) for k in default)
+        result["_status"] = "empty" if is_empty else "extracted"
         return result
 
     except json.JSONDecodeError as e:
         logger.error("Erreur de parsing JSON : %s", e)
         logger.error("Réponse brute : %s", response_text if "response_text" in locals() else "N/A")
 
-        return {"hard_skills": [], "soft_skills": [], "certifications": []}
+        return {
+            "hard_skills": [], "soft_skills": [], "certifications": [],
+            "_status": "failed",
+        }
 
     except Exception as e:
         logger.error("Erreur API : %s", e)
-        
-        return {"hard_skills": [], "soft_skills": [], "certifications": []}
+
+        return {
+            "hard_skills": [], "soft_skills": [], "certifications": [],
+            "_status": "failed",
+        }

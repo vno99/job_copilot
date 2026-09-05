@@ -21,6 +21,31 @@ from src.services.profile_parser import cv_source_to_markdown
 logger = setup_logging(__name__)
 
 
+def _diploma_to_list(value: str | None) -> list[str]:
+    """Convertit le champ diplôme CSV de la base en liste d'éléments.
+
+    La colonne ``diploma`` est ``TEXT`` et porte historiquement les diplômes
+    demandés par l'offre joints par ``", "`` (ex. ``"Bac +3, Bac +4, Bac +5"``).
+    Le matching LLM attend une **liste** d'éléments distincts (``["Bac +3",
+    "Bac +4", "Bac +5"]``) — encapsuler la chaîne dans une liste mono-élément
+    (``[row.diploma]``) produirait un seul diplôme « Bac +3, Bac +4, Bac +5 »
+    que le LLM ne sait pas exploiter. Split sur la virgule, nettoyage des
+    espaces, et dédoublonnage préservant l'ordre (les annonces Hellowork
+    répètent parfois le même niveau).
+    """
+    if not value:
+        return []
+    seen: set[str] = set()
+    out: list[str] = []
+    for raw in value.split(","):
+        item = raw.strip()
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        out.append(item)
+    return out
+
+
 # --- Re-mise en forme pour le moteur de matching -----------------------------
 
 def build_score_job(row: JobOfferModel) -> Dict[str, Any]:
@@ -36,7 +61,7 @@ def build_score_job(row: JobOfferModel) -> Dict[str, Any]:
         "location": row.location or "",
         "contract_type": row.contract_type or "",
         "experience": row.experience or "",
-        "diploma": [row.diploma] if row.diploma else [],
+        "diploma": _diploma_to_list(row.diploma),
         "description": row.description or "",
         # Compétences déjà extraites à l'ingestion (LLM) : réutilisées telles
         # quelles pour le matching, sans re-appeler le LLM pour les extraire.

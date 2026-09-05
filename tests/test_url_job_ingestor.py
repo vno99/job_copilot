@@ -41,8 +41,9 @@ def _fake_scope(session):
 
 
 class _FakeRepo:
-    """Repro du repository : ``get_by_url`` (offre unique), ``existing_urls``
-    (liste, par colonne ``url``) et ``upsert_many`` (compteurs configurables).
+    """Repro du repository : ``get_by_url`` / ``get_by_url_for_update`` (offre
+    unique), ``existing_urls`` (liste, par colonne ``url``) et ``upsert_many``
+    (compteurs configurables).
 
     ``upsert_call_count`` permet aux tests de vérifier que l'ingestor a bien
     effectué un seul appel batché (``upsert_many([row1, row2, …])``) plutôt
@@ -60,10 +61,18 @@ class _FakeRepo:
         self.upsert_call_count = 0
         self.upsert_calls: List[List[Dict]] = []
         self.seen_urls = []  # appels à get_by_url (chemin offre unique)
+        self.seen_urls_for_update = []  # appels à get_by_url_for_update
         self.rows = []
 
     def get_by_url(self, _session, url):
         self.seen_urls.append(url)
+        return self.existing_url
+
+    def get_by_url_for_update(self, _session, url):
+        # Variante verrouillée : même comportement que ``get_by_url`` côté fake.
+        # Trace les appels pour que les tests puissent vérifier que le verrou
+        # est bien pris avant l'upsert.
+        self.seen_urls_for_update.append(url)
         return self.existing_url
 
     def existing_urls(self, _session, urls):
@@ -168,7 +177,7 @@ def test_run_raises_on_duplicate(monkeypatch):
         URLJobIngestorService(scraper=scraper).run(TEST_URL)
 
     assert scraper.called_urls == [TEST_URL]
-    assert repo.seen_urls == [TEST_URL]
+    assert repo.seen_urls_for_update == [TEST_URL]
     assert repo.rows == []
 
 
@@ -199,8 +208,9 @@ def test_run_full_flow(monkeypatch):
     assert result.added == 1
     assert result.already_present == 0
     assert result.keys == [("example.com", URL_HASH)]
-    # Contrôle de doublon de l'offre unique ; pas de get_by_url en liste.
-    assert repo.seen_urls == [TEST_URL]
+    # Contrôle de doublon de l'offre unique (verrou ``FOR UPDATE``) ;
+    # pas de ``get_by_url`` non-verrouillé, plus de ``get_by_url`` en liste.
+    assert repo.seen_urls_for_update == [TEST_URL]
     assert scraper.called_urls == [TEST_URL]
 
     # La ligne est celle du pipeline d'ingestion existant (normalize_job_offer).
@@ -230,7 +240,7 @@ def test_run_normalizes_url_before_dedup(monkeypatch):
     result = URLJobIngestorService(scraper=scraper).run(TEST_URL + "#section")
 
     normalized = TEST_URL
-    assert repo.seen_urls == [normalized]
+    assert repo.seen_urls_for_update == [normalized]
     assert scraper.called_urls == [normalized]
     assert repo.rows[0]["url"] == normalized
     assert result.keys == [("example.com", URL_HASH)]
@@ -271,7 +281,7 @@ def test_run_from_source_ingests_single_offer(monkeypatch):
     assert result.keys == [("example.com", URL_HASH)]
     # Aucun fetch : le contenu vient du champ texte collé.
     assert scraper.called_urls == []
-    assert repo.seen_urls == [TEST_URL]
+    assert repo.seen_urls_for_update == [TEST_URL]
     assert len(repo.rows) == 1
     row = repo.rows[0]
     assert row["source"] == "example.com"
@@ -293,7 +303,7 @@ def test_run_from_source_normalizes_url_before_dedup(monkeypatch):
         TEST_URL + "#section", "contenu"
     )
 
-    assert repo.seen_urls == [TEST_URL]
+    assert repo.seen_urls_for_update == [TEST_URL]
     assert repo.rows[0]["url"] == TEST_URL
     assert result.keys == [("example.com", URL_HASH)]
 

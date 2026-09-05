@@ -101,6 +101,30 @@ def get_by_url(session: Session, url: str) -> Optional[JobOfferModel]:
     return session.scalars(stmt).first()
 
 
+def get_by_url_for_update(
+    session: Session, url: str
+) -> Optional[JobOfferModel]:
+    """Variante ``SELECT … FOR UPDATE`` de ``get_by_url`` : verrouille la ligne
+    jusqu'à la fin de la transaction (PostgreSQL ``SELECT FOR UPDATE``).
+
+    Utilisée par l'ingestion d'offre unique pour éliminer la course TOCTOU
+    entre le contrôle d'unicité et l'upsert. Sans verrou, un autre processus
+    peut insérer la même URL entre les deux opérations, et l'upsert
+    ``ON CONFLICT DO NOTHING`` renvoie silencieusement ``0`` : la fenêtre de
+    duplication n'est pas visible. Avec ``FOR UPDATE``, l'upsert concurrent
+    attend la fin de la transaction courante (et trouve la ligne déjà
+    insérée → le ``ON CONFLICT`` la neutralise proprement).
+    """
+    stmt = (
+        select(JobOfferModel)
+        .where(JobOfferModel.url == url)
+        .order_by(JobOfferModel.id.asc())
+        .limit(1)
+        .with_for_update()
+    )
+    return session.scalars(stmt).first()
+
+
 def existing_urls(session: Session, urls: List[str]) -> set[str]:
     """URLs de ``urls`` déjà présentes dans ``job_offer`` (par colonne ``url``).
 
@@ -282,9 +306,13 @@ def list_offers(
     if filters:
         stmt = stmt.where(*filters)
 
-    total = session.execute(
-        select(func.count()).select_from(stmt.subquery())
-    ).scalar_one()
+    # COUNT(*) optimisé : on évite le subquery wrapping qui force PostgreSQL à
+    # matérialiser la sous-requête. Un simple COUNT(*) avec les mêmes filtres
+    # est exécuté en une seule passe (PostgreSQL utilise l'index pertinent).
+    count_stmt = select(func.count()).select_from(JobOfferModel)
+    if filters:
+        count_stmt = count_stmt.where(*filters)
+    total = session.execute(count_stmt).scalar_one()
 
     sort_col = SORTABLE_COLUMNS[sort_by]
     direction = sort_col.asc() if order == "asc" else sort_col.desc()

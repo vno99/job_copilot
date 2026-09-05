@@ -55,6 +55,8 @@ def test_extract_skills_parses_llm_response(monkeypatch):
     assert result["hard_skills"][0]["mandatory"] is True
     assert result["soft_skills"] == []
     assert result["certifications"] == []
+    # Extraction réussie avec compétences trouvées.
+    assert result["_status"] == "extracted"
 
 
 def test_extract_skills_defaults_missing_keys(monkeypatch):
@@ -67,12 +69,49 @@ def test_extract_skills_defaults_missing_keys(monkeypatch):
     assert result["hard_skills"] == []
     assert result["soft_skills"] == []
     assert result["certifications"] == []
+    # Extraction réussie, mais aucune compétence détectée dans le texte.
+    assert result["_status"] == "empty"
 
 
 def test_extract_skills_empty_when_no_api_key(monkeypatch):
+    """Sans clé API : listes vides + ``_status="disabled"`` (le matching peut
+    distinguer « LLM désactivé » d'une extraction réussie sans compétence)."""
     monkeypatch.setattr(score_engine, "LLM", None)
     result = score_engine.extract_skills("Python")
-    assert result == {"hard_skills": [], "soft_skills": [], "certifications": []}
+    assert result == {
+        "hard_skills": [],
+        "soft_skills": [],
+        "certifications": [],
+        "_status": "disabled",
+    }
+
+
+def test_extract_skills_failed_on_invalid_json(monkeypatch):
+    """Réponse LLM invalide (JSON cassé) → ``_status="failed"``, pas ``"empty"`` :
+    une ré-extraction est justifiée, alors qu'une offre sans compétence ne doit
+    pas être retraitée."""
+    monkeypatch.setattr(
+        score_engine,
+        "LLM",
+        SimpleNamespace(
+            invoke=lambda _messages: SimpleNamespace(content="pas du json du tout")
+        ),
+    )
+    result = score_engine.extract_skills("Python")
+    assert result["_status"] == "failed"
+    assert result["hard_skills"] == []
+
+
+def test_extract_skills_failed_on_api_exception(monkeypatch):
+    """Exception réseau / API LLM → ``_status="failed"`` (vs ``"empty"``)."""
+
+    class _BoomLLM:
+        def invoke(self, _messages):
+            raise RuntimeError("connexion refusée par l'API")
+
+    monkeypatch.setattr(score_engine, "LLM", _BoomLLM())
+    result = score_engine.extract_skills("Python")
+    assert result["_status"] == "failed"
 
 
 def test_offer_skills_uses_stored_value(monkeypatch):

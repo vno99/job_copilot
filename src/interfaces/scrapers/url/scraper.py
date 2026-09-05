@@ -65,14 +65,28 @@ CONTENT_ROOT_TAGS = ("main", "section", "article")
 
 
 def _is_private_ip(address: str) -> bool:
-    """L'adresse IP est-elle privée, loopback, link-local, réservée ou indéfinie ?"""
+    """L'adresse IP est-elle privée, loopback, link-local, réservée ou indéfinie ?
+
+    Couvre IPv4 et IPv6 : RFC1918 (10/8, 172.16/12, 192.168/16), loopback
+    (127.0.0.0/8, ::1), link-local (169.254/16, fe80::/10), multicast
+    (224.0.0.0/4, ff00::/8), réservées et non-spécifiées (0.0.0.0, ::).
+    Les IPv4-mapped IPv6 (``::ffff:x.x.x.x``) sont également détectées via
+    ``ipaddress.ip_address`` qui les décode automatiquement.
+    """
     try:
         ip = ipaddress.ip_address(address)
     except ValueError:
         return False
+    # ``is_global`` est l'inverse exact de ce qu'on veut : c'est l'ensemble des
+    # adresses routables. Une adresse n'est PAS globale (= privée) si elle
+    # tombe dans un des blocs privés/loopback/link-local/multicast/réservé.
+    if not ip.is_global:
+        return True
+    # Filets de sécurité : ``is_global`` peut être ``None`` pour certaines
+    # adresses IPv6 non routables (ex. ``ff02::1`` multicast) — l'``or`` ci-
+    # dessous garantit le refus.
     return (
-        ip.is_private
-        or ip.is_loopback
+        ip.is_loopback
         or ip.is_link_local
         or ip.is_multicast
         or ip.is_reserved
@@ -257,6 +271,14 @@ class URLScraper:
         Playwright est importé ici, au moment de l'appel, pour ne pas rendre ce
         module dépendant du paquet à l'import.
 
+        Les retries sont bornés aux erreurs **transitoires** (timeout, 5xx,
+        408 Request Timeout, 425 Too Early, 429 Too Many Requests) — un 4xx
+        définitif (404, 403, 410 Gone…) ne sera pas résolu par un nouvel essai
+        et arrête immédiatement la boucle, qui sinon ré-essaierait
+        ``max_retries + 1`` fois la même URL invalide. Une redirection vers un
+        hôte privé est également définitive (barrière SSRF) et n'est pas
+        retentée.
+
         Returns:
             Le HTML complet après exécution du JS, ou ``None`` après échec
             définitif de toutes les tentatives.
@@ -265,6 +287,10 @@ class URLScraper:
             TimeoutError as PlaywrightTimeoutError,
         )
         from playwright.sync_api import sync_playwright
+
+        # Codes HTTP qui justifient un retry (transitoires). Les autres 4xx
+        # (404, 403, 410…) sont définitifs et arrêtent la boucle.
+        RETRYABLE_STATUS = {408, 425, 429}
 
         logger.info("Traitement de l'url: %s", url)
 
@@ -306,19 +332,29 @@ class URLScraper:
                         continue
 
                     if response and response.status >= 400:
-                        logger.warning("HTTP %s pour %s", response.status, url)
-                        continue
+                        if response.status in RETRYABLE_STATUS or response.status >= 500:
+                            logger.warning(
+                                "HTTP %s (transitoire) pour %s, tentative %d",
+                                response.status, url, attempt + 1,
+                            )
+                            continue
+                        # 4xx définitif : inutile de retenter, l'URL ne répondra pas.
+                        logger.warning(
+                            "HTTP %s (définitif) pour %s, abandon", response.status, url
+                        )
+                        return None
 
                     # Barrière SSRF après redirection : une redirection peut mener
                     # vers un hôte privé (ex. 302 vers http://127.0.0.1/) même si
-                    # l'URL initiale était publique. On refuse alors le contenu.
+                    # l'URL initiale était publique. Refus définitif (pas de
+                    # retry — la situation ne changera pas).
                     final_url = page.url
                     final_host = urlsplit(final_url).hostname or ""
                     if _is_private_host(final_host):
                         logger.warning(
                             "Redirection vers un hôte privé refusée : %s", final_url
                         )
-                        continue
+                        return None
 
                     page.wait_for_load_state("networkidle", timeout=10000)
                     html = page.content()
