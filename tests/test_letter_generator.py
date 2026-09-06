@@ -340,3 +340,37 @@ def test_rewrite_build_prompt_contains_first_letter_and_markers():
     # Le marqueur de la pass 1 est absent : le mock du conftest ne doit pas
     # re-brancher sur la génération simple de la lettre.
     assert LETTER_MARKER not in prompt
+
+
+# ---------------------------------------------------------------------------
+# Tests du service LetterGeneratorService (provenant de test_unit_letter_generator.py)
+# ---------------------------------------------------------------------------
+
+
+def test_letter_generator_run_unit():
+    from unittest.mock import patch, MagicMock
+    from src.services.letter_generator import LetterGeneratorService
+
+    with patch("src.services.letter_generator.session_scope") as mock_session:
+        mock_session_ctx = MagicMock()
+        mock_session_ctx.__enter__ = MagicMock(
+            return_value=MagicMock(get=MagicMock(return_value=None))
+        )
+        mock_session_ctx.__exit__ = MagicMock(return_value=False)
+        mock_session.return_value = mock_session_ctx
+        service = LetterGeneratorService()
+        with pytest.raises(ValueError):
+            service.run(1, 1)
+
+
+def test_letter_generator_delete_unit():
+    from unittest.mock import patch, MagicMock
+    from src.services.letter_generator import LetterGeneratorService
+
+    with patch(
+        "src.services.letter_generator.letter_version_repository.delete_for_pair",
+        return_value=False,
+    ):
+        service = LetterGeneratorService()
+        result = service.delete(1, 1)
+        assert result is False

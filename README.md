@@ -1,4 +1,9 @@
-# job_copilot
+# Job Copilot
+
+[![Python Version](https://img.shields.io/badge/python-3.12+-yellow.svg)](https://www.python.org/)
+[![Next.js](https://img.shields.io/badge/next.js-16+-black.svg)](https://nextjs.org/)
+[![PostgreSQL](https://img.shields.io/badge/postgresql-16+-blue.svg)](https://www.postgresql.org/)
+[![Airflow](https://img.shields.io/badge/-Airflow%203.1.8-017CEE?style=flat&logo=apache-airflow)](https://airflow.apache.org/)
 
 Système automatisé de mise en correspondance d'emplois et recomposition de CV, orchestré par **Apache Airflow**.
 

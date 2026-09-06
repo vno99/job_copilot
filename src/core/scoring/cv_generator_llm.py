@@ -57,6 +57,22 @@ COMPATIBILITY_MARKER = "=== ANALYSE DE COMPATIBILITÉ ==="
 CV_REWRITE_MARKER = "=== RÉÉCRITURE HUMAINE CV ==="
 FIRST_CV_MARKER = "=== CV INITIAL ==="
 
+REWRITE_SYSTEM_PROMPT = """Tu es un expert en reformulation de CV techniques pour le marché francophone.
+
+Tu reçois un CV déjà adapté à une offre d'emploi. Ta tâche est de le reformuler
+pour qu'il sonne naturel, professionnel et crédible — comme écrit par un candidat
+réel et non par une machine.
+
+Règles :
+- Conserve tous les faits, chiffres, dates et compétences du CV source.
+- Ne jamais inventé, agrandir ou créer d'information absente.
+- Reformule les formulations trop génériques ou trop "LLM".
+- Structure : conserve les rubriques principales (titre, résumé, compétences,
+  expériences, formation).
+- Réponds UNIQUEMENT avec le CV recomposé en Markdown, sans bloc de code ni
+  texte autour.
+"""
+
 
 class CVGenerationError(RuntimeError):
     """Le LLM est indisponible (clé absente, erreur API, réponse vide/invalide)."""

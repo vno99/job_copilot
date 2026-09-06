@@ -508,3 +508,116 @@ def test_generate_cv_markdown_splits_collapsed_table_rows(monkeypatch):
     )
     md = generate_cv_markdown(_job_dict(), _profile_dict(), _match_dict())
     assert "| Domaine | Outils |\n|---|---|\n| Python | SQL |\n| Cloud | AWS |" in md
+
+
+# ---------------------------------------------------------------------------
+# _rewrite_cv_human (pass 2 — disabled but tests preserved for future activation)
+# ---------------------------------------------------------------------------
+
+
+def test_rewrite_cv_human_raises_without_key(monkeypatch):
+    """_rewrite_cv_human lève CVGenerationError si HUMANIZE_LLM est None."""
+    from src.core.scoring import cv_generator_llm, score_engine
+    from src.core.scoring.cv_generator_llm import CVGenerationError
+
+    monkeypatch.setattr(score_engine, "HUMANIZE_LLM", None)
+
+    with pytest.raises(CVGenerationError, match="OPENROUTER_API_KEY"):
+        cv_generator_llm._rewrite_cv_human(
+            _job_dict(), _profile_dict(), _match_dict(), "# CV"
+        )
+
+
+def test_rewrite_cv_human_raises_on_empty_response(monkeypatch):
+    """_rewrite_cv_human lève CVGenerationError si la réponse LLM est vide."""
+    from src.core.scoring import cv_generator_llm, score_engine
+    from src.core.scoring.cv_generator_llm import CVGenerationError
+
+    monkeypatch.setattr(
+        score_engine,
+        "HUMANIZE_LLM",
+        _FakeLLM(content="   "),
+    )
+
+    with pytest.raises(CVGenerationError, match="réponse LLM vide"):
+        cv_generator_llm._rewrite_cv_human(
+            _job_dict(), _profile_dict(), _match_dict(), "# CV"
+        )
+
+
+def test_rewrite_cv_human_raises_on_api_error(monkeypatch):
+    """_rewrite_cv_human lève CVGenerationError sur erreur API."""
+    from src.core.scoring import cv_generator_llm, score_engine
+    from src.core.scoring.cv_generator_llm import CVGenerationError
+
+    monkeypatch.setattr(
+        score_engine,
+        "HUMANIZE_LLM",
+        _FakeLLM(error=RuntimeError("API error")),
+    )
+
+    with pytest.raises(CVGenerationError, match="erreur API"):
+        cv_generator_llm._rewrite_cv_human(
+            _job_dict(), _profile_dict(), _match_dict(), "# CV"
+        )
+
+
+def test_rewrite_cv_human_returns_markdown(monkeypatch):
+    """_rewrite_cv_human renvoie le markdown reformulé quand le LLM répond."""
+    from src.core.scoring import cv_generator_llm, score_engine
+
+    monkeypatch.setattr(
+        score_engine,
+        "HUMANIZE_LLM",
+        _FakeLLM(content="## Compétences\n- Python\n- SQL"),
+    )
+
+    result = cv_generator_llm._rewrite_cv_human(
+        _job_dict(), _profile_dict(), _match_dict(), "# CV"
+    )
+
+    assert "## Compétences" in result
+    assert "Python" in result
+
+
+def test_rewrite_cv_human_strips_code_fences(monkeypatch):
+    """_rewrite_cv_human retire les fences de code de la réponse LLM."""
+    from src.core.scoring import cv_generator_llm, score_engine
+
+    monkeypatch.setattr(
+        score_engine,
+        "HUMANIZE_LLM",
+        _FakeLLM(content="```markdown\n## Skills\n- Python\n```"),
+    )
+
+    result = cv_generator_llm._rewrite_cv_human(
+        _job_dict(), _profile_dict(), _match_dict(), "# CV"
+    )
+
+    assert "```" not in result
+    assert "## Skills" in result
+
+
+def test_rewrite_cv_human_splits_collapsed_table_rows(monkeypatch):
+    """_rewrite_cv_human répare les tableaux collés avant de retourner."""
+    from src.core.scoring import cv_generator_llm, score_engine
+
+    monkeypatch.setattr(
+        score_engine,
+        "HUMANIZE_LLM",
+        _FakeLLM(
+            content=(
+                "## Compétences\n"
+                "| Domaine | Outils | |---|---|\n"
+                "| Python | SQL | | Cloud | AWS |"
+            )
+        ),
+    )
+
+    result = cv_generator_llm._rewrite_cv_human(
+        _job_dict(), _profile_dict(), _match_dict(), "# CV"
+    )
+
+    assert "| Domaine | Outils |\n|---|---|\n| Python | SQL |\n| Cloud | AWS |" in result
+
+

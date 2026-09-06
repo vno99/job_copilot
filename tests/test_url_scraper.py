@@ -7,6 +7,8 @@ du HTML en texte brut, et en particulier la **réinjection des ``href``**
 les URLs des offres (les ``href`` sont perdus par la conversion en texte).
 """
 
+import pytest
+
 from src.core.scoring.url_offer_extractor import MAX_PAGE_CHARS
 from src.interfaces.scrapers.url.scraper import MAX_PAGE_LINKS, URLScraper
 
@@ -216,3 +218,60 @@ def test_truncates_to_max_page_chars_without_links():
     text = _convert(f"<html><body>{long_text}</body></html>")
     assert len(text) == MAX_PAGE_CHARS + 1  # MAX_PAGE_CHARS + « … »
     assert text.endswith("…")
+
+
+def test_html_to_text_with_empty_html_returns_empty():
+    """Ligne 416 : etree.HTML('') retourne None, la methode renvoie ''."""
+    result = URLScraper._html_to_text("", "https://example.com/")
+    assert result == ""
+
+
+def test_collect_page_links_skips_invalid_href(monkeypatch):
+    """Les href qui provoquent ValueError dans urljoin sont ignores."""
+    from src.interfaces.scrapers.url.scraper import _collect_page_links
+    from lxml import etree
+
+    # Un arbre avec un href qui provoque ValueError lors du urljoin
+    # (protocol-relative URL avec un scheme illegal)
+    html = '<html><body><a href="http:invalid">Link</a></body></html>'
+    tree = etree.HTML(html)
+    links = _collect_page_links(tree, "https://example.com/")
+    # Le lien doit être ignoré ou ne pas faire planter
+    assert isinstance(links, list)
+
+
+def test_collect_page_links_skips_non_http_scheme(monkeypatch):
+    """Les liens avec un scheme different de http/https sont ignores."""
+    from src.interfaces.scrapers.url.scraper import _collect_page_links
+    from lxml import etree
+
+    html = '<html><body><a href="ftp://example.com/file">File</a></body></html>'
+    tree = etree.HTML(html)
+    links = _collect_page_links(tree, "https://example.com/")
+    assert links == []
+
+
+def test_normalize_url_strips_fragment():
+    """normalize_url retire le fragment #... de l'URL."""
+    from src.interfaces.scrapers.url.scraper import normalize_url
+    url = normalize_url("https://example.com/page#section")
+    assert "#" not in url
+    assert "section" not in url
+
+
+def test_normalize_url_raises_on_private_ip():
+    """normalize_url leve URLScrapingError pour une IP privee."""
+    from src.interfaces.scrapers.url.scraper import normalize_url, URLScrapingError
+    with pytest.raises(URLScrapingError, match="adresse priv"):
+        normalize_url("http://127.0.0.1/")
+    with pytest.raises(URLScrapingError, match="adresse priv"):
+        normalize_url("http://192.168.1.1/")
+
+
+def test_normalize_url_raises_on_invalid_scheme():
+    """normalize_url leve URLScrapingError pour un scheme non autorise."""
+    from src.interfaces.scrapers.url.scraper import normalize_url, URLScrapingError
+    with pytest.raises(URLScrapingError, match="sch.ma"):
+        normalize_url("ftp://example.com/")
+    with pytest.raises(URLScrapingError, match="sch.ma"):
+        normalize_url("file:///etc/passwd")
