@@ -62,6 +62,8 @@ jobs:
       - name: Créer .env temporaire pour Docker
         run: |
           cp .env.example .env
+          echo "AIRFLOW__CORE__FERNET_KEY=$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" >> .env
+          echo "AIRFLOW__API__SECRET_KEY=$(python -c 'import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')" >> .env
           echo "AIRFLOW__API_AUTH__JWT_SECRET=$(python -c 'import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')" >> .env
           echo ".env temporaire créé"
 
@@ -79,8 +81,10 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: requirements.txt
-      - name: Installer Airflow
-        run: pip install "apache-airflow>=3.0,<4.0"  # aligné avec airflow.sdk (Airflow 3)
+      - name: Installer Airflow + dépendances
+        run: |
+          pip install "apache-airflow>=3.0,<4.0"
+          pip install -r requirements.txt -r api/requirements.txt
       - name: Vérifier compilation DAG
         run: python -c "from dags.search_parameters_agent import *; print('DAG OK')"
 
