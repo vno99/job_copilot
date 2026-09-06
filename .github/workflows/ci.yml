@@ -6,8 +6,8 @@
 #     PostgreSQL jetable démarré par le fixture `docker_postgres` — Docker est
 #     disponible sur les runners `ubuntu-latest`).
 #
-# Le LLM Mistral est mocké par le fixture `_mock_llm` du `conftest.py` : aucune
-# clé MISTRAL_API_KEY n'est requise, la suite est déterministe et hors-ligne.
+# Le LLM est mocké par le fixture `_mock_llm` du `conftest.py` : aucune
+# clé OPENROUTER_API_KEY n'est requise, la suite est déterministe et hors-ligne.
 #
 # Note : `pytest` et `httpx` (TestClient de FastAPI) ne sont dans aucun
 # requirements.txt → installés explicitement. `playwright` (package) suffit :

@@ -11,7 +11,7 @@ Ce document est la référence : l'API et le front doivent s'y conformer.
   `candidate_profile`. L'API le résout côté serveur. `candidate_profile_id` est
   **optionnel partout** : s'il est absent, le profil actif est utilisé.
 - **Actions synchrones** : le matching **et la génération de CV et de lettre de
-  motivation** appellent le LLM Mistral (clé `MISTRAL_API_KEY`) et restent
+  motivation** appellent le LLM via OpenRouter (clé `OPENROUTER_API_KEY`) et restent
   synchrones (pas de file de jobs en v1). La génération de **CV** (pass 1) utilise
   l'instance dédiée `CV_GENERATION_LLM` (**`mistral-large-latest`**) ; le matching,
   la **lettre** (pass 1) et la classification de page par URL restent sur
@@ -47,7 +47,7 @@ Ce document est la référence : l'API et le front doivent s'y conformer.
   l'a identifié — ex. « l'offre n'est plus disponible sur le site »), `404` si le
   profil actif n'est pas chargé,
   `413` (contenu collé au-delà de 2 000 000 de caractères à `from-url` avec `source`),
-  `502` (LLM Mistral indisponible pendant un matching, une génération de CV ou de lettre,
+  `502` (LLM via OpenRouter indisponible pendant un matching, une génération de CV ou de lettre,
   ou l'extraction d'une offre depuis une URL ou un contenu collé).
 
 ## Profil
@@ -77,7 +77,7 @@ Ce document est la référence : l'API et le front doivent s'y conformer.
 > (offre, profil) déjà noté **écrase** le `match_result` existant (upsert sur
 > `uq_match_unique_pair`) : l'interface propose « Relancer le matching » dès qu'un score
 > existe, ce qui permet de re-scorer avec un autre profil sélectionné. Le matching est
-> produit par le LLM Mistral (`mistral-small-latest`, clé `MISTRAL_API_KEY`) : sans clé ou
+> produit par le LLM via OpenRouter (`mistral-small-latest`, clé `OPENROUTER_API_KEY`) : sans clé ou
 > en cas de réponse invalide, le matching renvoie `502`.
 >
 > **Anonymisation** : le LLM reçoit le **texte brut du CV, anonymisé** — nom, téléphone,
