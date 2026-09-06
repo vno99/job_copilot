@@ -59,6 +59,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Créer .env temporaire pour Docker
+        run: |
+          cp .env.example .env
+          echo "AIRFLOW__API_AUTH__JWT_SECRET=$(python -c 'import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')" >> .env
+          echo ".env temporaire créé"
+
       - name: Build image API + web
         run: docker compose build
 
@@ -74,7 +80,7 @@ jobs:
           cache: pip
           cache-dependency-path: requirements.txt
       - name: Installer Airflow
-        run: pip install apache-airflow==2.10.5  # aligné avec docker-compose
+        run: pip install "apache-airflow>=3.0,<4.0"  # aligné avec airflow.sdk (Airflow 3)
       - name: Vérifier compilation DAG
         run: python -c "from dags.search_parameters_agent import *; print('DAG OK')"
 
