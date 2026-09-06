@@ -89,6 +89,9 @@ jobs:
           EOF
           echo ".env temporaire créé"
 
+      - name: Vérifier docker-compose
+        run: docker compose config
+
       - name: Build image API + web
         run: docker compose build
 
@@ -107,8 +110,10 @@ jobs:
         run: |
           pip install "apache-airflow>=3.0,<4.0"
           pip install -r requirements.txt -r api/requirements.txt
-      - name: Vérifier compilation DAG
-        run: python -c "from dags.search_parameters_agent import *; print('DAG OK')"
+      - name: Vérifier compilation DAGs (search + job_copilot)
+        run: |
+          python -c "from dags.search_parameters_agent import *; print('search_parameters_agent OK')"
+          python -c "from dags.job_copilot import *; print('job_copilot OK')"
 
   # --- Lint ---
   lint-back:
