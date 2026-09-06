@@ -61,10 +61,32 @@ jobs:
       - uses: actions/checkout@v4
       - name: Créer .env temporaire pour Docker
         run: |
-          cp .env.example .env
-          echo "AIRFLOW__CORE__FERNET_KEY=$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" >> .env
-          echo "AIRFLOW__API__SECRET_KEY=$(python -c 'import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')" >> .env
-          echo "AIRFLOW__API_AUTH__JWT_SECRET=$(python -c 'import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')" >> .env
+          cat << EOF > .env
+          AIRFLOW_UID=197608
+          AIRFLOW_POSTGRES_USER=airflow
+          AIRFLOW_POSTGRES_PASSWORD=airflow
+          AIRFLOW_POSTGRES_DB=airflow
+          _AIRFLOW_WWW_USER_USERNAME=airflow
+          _AIRFLOW_WWW_USER_PASSWORD=airflow
+          JOB_COPILOT_POSTGRES_USER=user
+          JOB_COPILOT_POSTGRES_PASSWORD=password
+          JOB_COPILOT_POSTGRES_DB=job_copilot
+          DATABASE_URL=postgresql+psycopg2://user:password@localhost:5434/job_copilot
+          DOCKER_DATABASE_URL=postgresql+psycopg2://user:password@postgres-data:5432/job_copilot
+          PYTHONPATH=/opt/airflow
+          OPENROUTER_API_KEY=
+          OPENROUTER_API_BASE=
+          OPENROUTER_LLM_MODEL_SMALL=
+          OPENROUTER_LLM_MODEL_LARGE=
+          AIRFLOW__CORE__FERNET_KEY=$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')
+          AIRFLOW__API__SECRET_KEY=$(python -c 'import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')
+          AIRFLOW__API_AUTH__JWT_SECRET=$(python -c 'import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')
+          AIRFLOW__API_AUTH__JWT_ISSUER=airflow
+          AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+          AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+          AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
+          AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-apiserver:8080/execution/
+          EOF
           echo ".env temporaire créé"
 
       - name: Build image API + web
