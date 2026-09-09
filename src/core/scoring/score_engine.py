@@ -52,7 +52,7 @@ OPENROUTER_LLM_MODEL_LARGE = os.getenv(
 
 LLM_MODEL = OPENROUTER_LLM_MODEL_SMALL
 TEMPERATURE = 0.1
-MAX_TOKEN = 2000
+MAX_TOKEN = 4096
 
 # LLM None si pas de clé : extract_skills renvoie alors un résultat vide
 # au lieu de crasher à l'import ou à l'appel.
@@ -251,7 +251,10 @@ def extract_skills(offer_text: str) -> dict:
             "_status": "disabled",
         }
 
-    user_prompt = USER_PROMPT_TEMPLATE.format(job_description=offer_text)
+    # Tronque le texte d'entrée pour éviter que le LLM coupe sa réponse au milieu du JSON.
+    MAX_PAGE_CHARS = 12000
+    truncated_text = offer_text[:MAX_PAGE_CHARS] if len(offer_text) > MAX_PAGE_CHARS else offer_text
+    user_prompt = USER_PROMPT_TEMPLATE.format(job_description=truncated_text)
 
     try:
         messages = [
