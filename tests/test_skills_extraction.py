@@ -147,3 +147,75 @@ def test_offer_skills_falls_back_when_not_stored():
     """Sans skills_extracted, on retombe sur l'extraction (LLM mocké en conftest)."""
     offer = {"description": "SQL"}
     assert score_engine.offer_skills(offer) == ["sql"]
+
+
+def _fake_llm_response(content="", meta=None, usage=None):
+    """Réponse LLM minimale (comme l'AIMessage de langchain) pour les tests."""
+    return SimpleNamespace(
+        content=content,
+        response_metadata=meta or {},
+        usage_metadata=usage,
+    )
+
+
+def test_response_diagnostics_flags_thinking_model_cut_on_max_tokens():
+    """Un modèle de raisonnement coupé sur max_tokens rend un contenu vide avec
+    ``finish_reason="length"`` — le diagnostic doit le signaler."""
+    diag = score_engine._response_diagnostics(
+        _fake_llm_response(
+            content="",
+            meta={"finish_reason": "length", "model_name": "qwen/qwen3.7-flash"},
+            usage={"output_tokens": 4096, "output_token_details": {"reasoning": 3155}},
+        ),
+        "",
+    )
+    assert "finish_reason=length" in diag
+    assert "model=qwen/qwen3.7-flash" in diag
+    assert "output_tokens=4096" in diag
+    assert "reasoning_tokens=3155" in diag
+    assert "max_tokens" in diag
+
+
+def test_response_diagnostics_marks_empty_content():
+    """Contenu vide sans ``finish_reason="length"`` → mention « contenu vide »."""
+    diag = score_engine._response_diagnostics(
+        _fake_llm_response(content="   ", meta={"finish_reason": "stop"}), ""
+    )
+    assert "finish_reason=stop" in diag
+    assert "contenu vide" in diag
+
+
+def test_response_diagnostics_tolerates_missing_metadata():
+    """Réponse sans métadonnées (usage_metadata absent) → chaîne non vide, sans crash."""
+    diag = score_engine._response_diagnostics(
+        SimpleNamespace(content="{}"), ""
+    )
+    assert isinstance(diag, str)
+
+
+def test_extract_skills_logs_llm_context_on_invalid_json(monkeypatch):
+    """Un JSON invalide logue désormais le contexte LLM (finish_reason, modèle,
+    tokens de raisonnement) en plus de la réponse brute : un contenu vide est
+    souvent un modèle de raisonnement coupé sur max_tokens — le texte seul ne le
+    montre pas."""
+    recorded = []
+    monkeypatch.setattr(
+        score_engine,
+        "logger",
+        SimpleNamespace(error=lambda msg, *a: recorded.append((msg % a) if a else msg)),
+    )
+    fake = _fake_llm_response(
+        content="pas du json",
+        meta={"finish_reason": "length", "model_name": "qwen/qwen3.7-flash"},
+        usage={"output_tokens": 4096, "output_token_details": {"reasoning": 3155}},
+    )
+    monkeypatch.setattr(score_engine, "LLM", SimpleNamespace(invoke=lambda _m: fake))
+    result = score_engine.extract_skills("Python")
+    assert result["_status"] == "failed"
+    logged = "\n".join(recorded)
+    assert "Erreur de parsing JSON" in logged
+    assert "Réponse brute" in logged
+    assert "Contexte de la réponse" in logged
+    assert "finish_reason=length" in logged
+    assert "reasoning_tokens=3155" in logged
+    assert "model=qwen/qwen3.7-flash" in logged

@@ -222,6 +222,42 @@ def offer_skills(offer: Dict[str, Any]) -> List[str]:
     return skills_to_names(extract_skills(offer.get("description") or ""))
 
 
+def _response_diagnostics(response: Any, response_text: str) -> str:
+    """Résumé des métadonnées d'une réponse LLM pour le diagnostic d'un échec.
+
+    Complète la « réponse brute » (parfois vide) par ce que le texte seul ne
+    montre pas : ``finish_reason``, le modèle et les compteurs de tokens — dont
+    ``reasoning_tokens``, les tokens de « raisonnement » invisibles dans le
+    contenu. Un contenu vide avec ``finish_reason="length"`` et beaucoup de
+    tokens de raisonnement signale un modèle de raisonnement qui a épuisé
+    ``max_tokens`` en thinking avant de rendre sa réponse JSON.
+    """
+    meta = getattr(response, "response_metadata", {}) or {}
+    usage = getattr(response, "usage_metadata", None) or {}
+    reasoning = (usage.get("output_token_details") or {}).get("reasoning")
+
+    finish_reason = meta.get("finish_reason")
+    parts = []
+    if finish_reason is not None:
+        parts.append(f"finish_reason={finish_reason}")
+    model = meta.get("model_name")
+    if model is not None:
+        parts.append(f"model={model}")
+    output_tokens = usage.get("output_tokens")
+    if output_tokens is not None:
+        parts.append(f"output_tokens={output_tokens}")
+    if reasoning is not None:
+        parts.append(f"reasoning_tokens={reasoning}")
+
+    if finish_reason == "length":
+        parts.append(
+            "réponse coupée : max_tokens atteint (tokens de raisonnement comptés dans le budget)"
+        )
+    elif not isinstance(response_text, str) or not response_text.strip():
+        parts.append("contenu vide")
+    return " | ".join(parts)
+
+
 def extract_skills(offer_text: str) -> dict:
     """Extrait les compétences d'une offre d'emploi via LLM.
 
@@ -294,6 +330,14 @@ def extract_skills(offer_text: str) -> dict:
     except json.JSONDecodeError as e:
         logger.error("Erreur de parsing JSON : %s", e)
         logger.error("Réponse brute : %s", response_text if "response_text" in locals() else "N/A")
+        # Contexte de la réponse (finish_reason, tokens de raisonnement) : un
+        # contenu vide / JSON cassé est souvent un modèle de raisonnement coupé
+        # sur max_tokens — invisible dans le texte brut seul.
+        if "response" in locals():
+            logger.error(
+                "Contexte de la réponse : %s",
+                _response_diagnostics(response, locals().get("response_text", "")),
+            )
 
         return {
             "hard_skills": [], "soft_skills": [], "certifications": [],
